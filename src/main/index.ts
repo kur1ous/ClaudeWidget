@@ -145,10 +145,10 @@ function notify(title: string, body: string): void {
 
 /** last-seen state per live sessionId, to fire only on transitions */
 const lastStates = new Map<string, SessionState>()
-/** which {window}:{threshold} alerts already fired this window, re-armed on reset */
+/** which {window}:{threshold} alerts already fired; re-armed when the window drops back */
 const firedLimits = new Set<string>()
-/** resetsAt seen per window; a change re-arms that window's limit alerts */
-const limitResets = new Map<string, string | null>()
+/** hysteresis: re-arm the 90% alert only after utilization falls back below this */
+const LIMIT_REARM = 85
 
 const DONE_STATES = new Set<SessionState>(['awaiting', 'idle'])
 
@@ -179,12 +179,12 @@ function checkUsageAlerts(snap: UsageSnapshot): void {
   ]
   for (const [key, label, win] of windows) {
     if (!win) continue
-    if (limitResets.get(key) !== win.resetsAt) {
-      // window rolled over → clear its prior alerts so they can fire afresh
-      limitResets.set(key, win.resetsAt)
-      firedLimits.delete(`${key}:90`)
-      firedLimits.delete(`${key}:eta`)
-    }
+    // Re-arm on the values that define each crossing, not on resetsAt. The 5-hour
+    // window is rolling, so its resetsAt drifts forward every poll — keying the
+    // re-arm on that re-fired the 90% alert every 180s. A genuine window reset
+    // instead drops utilization (and clears the projection), which is what we watch.
+    if (win.utilization < LIMIT_REARM) firedLimits.delete(`${key}:90`)
+    if (!win.projectedExhaustAt) firedLimits.delete(`${key}:eta`)
     if (win.utilization >= 90 && !firedLimits.has(`${key}:90`)) {
       firedLimits.add(`${key}:90`)
       const resets = win.resetsAt ? ` — resets in ${countdown(win.resetsAt)}` : ''
