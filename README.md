@@ -7,9 +7,6 @@ corner of your screen.
 
 ![the widget](resources/screenshot.png)
 
-> Replace the image above with a real screenshot once you have one, then delete
-> this line.
-
 ---
 
 ## Do I need anything first?
