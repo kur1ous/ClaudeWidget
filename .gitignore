@@ -1,0 +1,7 @@
+node_modules/
+out/
+out-types/
+dist/
+window-state.json
+*.log
+.DS_Store
